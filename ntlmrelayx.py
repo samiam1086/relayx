@@ -155,7 +155,7 @@ class MiniShell(cmd.Cmd):
 
 
                             #step 2 start reaper
-                            os.system('sudo python3 lsa-reaper.py {}@{} -oe -ip eth0 -ap'.format(dat[2], dat[1]))
+                            os.system('sudo python3 lsa-reaper.py {}@{} -oe -ip eth0 -ap -no-pass'.format(dat[2], dat[1]))
 
                             #step 3 start servers
                             if not self.serversRunning:
