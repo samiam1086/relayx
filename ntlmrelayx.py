@@ -155,8 +155,8 @@ class MiniShell(cmd.Cmd):
                                 print(str(e))
                                 print('Error dumping secrets')
 
-                            # lsass dump with reaper
-
+                            # lsass dump with reaper -- commented out atm
+"""
                             # step 1 stopservers
                             if self.serversRunning:
                                 stop_servers(self.relayThreads)
@@ -179,7 +179,7 @@ class MiniShell(cmd.Cmd):
                                 logging.info('Relay servers started')
                             else:
                                 logging.error('Relay servers are already running!')
-
+"""
             else:
                 logging.info('No Relays Available!')
 
